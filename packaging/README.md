@@ -7,7 +7,7 @@ build-stage/
   opt/cursor-switcher/{cursor-switcher, cursor-switcher.resources/, helper.py, icon.png}
   usr/bin/cursor-switcher -> ../opt/cursor-switcher/cursor-switcher
   usr/share/applications/cursor-switcher.desktop
-  usr/share/icons/hicolor/128x128/apps/cursor-switcher.png
+  usr/share/icons/hicolor/256x256/apps/cursor-switcher.png
 ```
 
 ## 当前架构（x86_64）

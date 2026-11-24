@@ -23,8 +23,8 @@ install -d %{buildroot}%{_bindir}
 ln -s ../opt/cursor-switcher/cursor-switcher %{buildroot}%{_bindir}/cursor-switcher
 install -d %{buildroot}%{_datadir}/applications
 install -m644 %{stage}/usr/share/applications/cursor-switcher.desktop %{buildroot}%{_datadir}/applications/
-install -d %{buildroot}%{_datadir}/icons/hicolor/128x128/apps
-install -m644 %{stage}/usr/share/icons/hicolor/128x128/apps/cursor-switcher.png %{buildroot}%{_datadir}/icons/hicolor/128x128/apps/
+install -d %{buildroot}%{_datadir}/icons/hicolor/256x256/apps
+install -m644 %{stage}/usr/share/icons/hicolor/256x256/apps/cursor-switcher.png %{buildroot}%{_datadir}/icons/hicolor/256x256/apps/
 install -d %{buildroot}%{_datadir}/metainfo
 install -m644 %{stage}/usr/share/metainfo/cursor-switcher.metainfo.xml %{buildroot}%{_datadir}/metainfo/
 install -d %{buildroot}%{_datadir}/icons
@@ -42,7 +42,7 @@ gtk-update-icon-cache -q -t -f %{_datadir}/icons/hicolor >/dev/null 2>&1 || :
 /opt/cursor-switcher
 %{_bindir}/cursor-switcher
 %{_datadir}/applications/cursor-switcher.desktop
-%{_datadir}/icons/hicolor/128x128/apps/cursor-switcher.png
+%{_datadir}/icons/hicolor/256x256/apps/cursor-switcher.png
 %{_datadir}/metainfo/cursor-switcher.metainfo.xml
 /usr/share/icons/PRTS-Final
 /usr/share/icons/PRTS-Final-Static

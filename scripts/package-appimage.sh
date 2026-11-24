@@ -17,12 +17,12 @@ fetch "https://github.com/AppImage/type2-runtime/releases/download/continuous/ru
 APPDIR=$PWD/AppDir
 BIN=$PWD/build-stage/opt/cursor-switcher
 rm -rf "$APPDIR"
-mkdir -p "$APPDIR/usr/bin" "$APPDIR/usr/share/applications" "$APPDIR/usr/share/icons/hicolor/128x128/apps" "$APPDIR/usr/share/metainfo"
+mkdir -p "$APPDIR/usr/bin" "$APPDIR/usr/share/applications" "$APPDIR/usr/share/icons/hicolor/256x256/apps" "$APPDIR/usr/share/metainfo"
 cp -a "$BIN/cursor-switcher" "$BIN/cursor-switcher.resources" "$BIN/helper.py" "$BIN/icon.png" "$APPDIR/usr/bin/"
 cp cursor-switcher.desktop "$APPDIR/usr/share/applications/"
 cp cursor-switcher.metainfo.xml "$APPDIR/usr/share/metainfo/"
 cp icon.png "$APPDIR/cursor-switcher.png"
-cp icon.png "$APPDIR/usr/share/icons/hicolor/128x128/apps/cursor-switcher.png"
+cp icon.png "$APPDIR/usr/share/icons/hicolor/256x256/apps/cursor-switcher.png"
 if [ -d build-stage/usr/share/icons/PRTS-Final ]; then
   cp -a build-stage/usr/share/icons/PRTS-Final build-stage/usr/share/icons/PRTS-Final-Static "$APPDIR/usr/share/icons/"
 fi
