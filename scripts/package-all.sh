@@ -12,5 +12,5 @@ esac
 ARCH=$ARCH ./scripts/package-rpm.sh
 ARCH=$DEB_ARCH ./scripts/package-deb.sh
 ARCH=$ARCH ./scripts/package-appimage.sh || echo "AppImage 跳过（工具或 GTK 打包失败）"
-(cd dist && sha256sum * > SHA256SUMS.txt)
+(cd dist && find . -maxdepth 2 -type f ! -name SHA256SUMS.txt -print0 | xargs -0 sha256sum > SHA256SUMS.txt)
 find dist -maxdepth 2 -type f | sort
