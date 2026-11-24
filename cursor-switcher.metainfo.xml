@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>cursor-switcher.desktop</id>
+  <name>Cursor Effects Switcher</name>
+  <name xml:lang="zh_CN">光标特效切换器</name>
+  <summary>Switch cursor themes, size and Umbriel cursor shader effects</summary>
+  <summary xml:lang="zh_CN">切换鼠标主题、大小与 Umbriel 光标 shader 光效</summary>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <description><p>Detects installed Xcursor themes, changes size, and toggles Umbriel cursor shader effects. Changes apply immediately.</p></description>
+  <launchable type="desktop-id">cursor-switcher.desktop</launchable>
+  <url type="homepage">https://github.com/h465855hgg/umbriel-cursor-switcher</url>
+  <provides><binary>cursor-switcher</binary></provides>
+  <categories><category>Settings</category></categories>
+  <releases><release version="0.1.0" date="2026-11-24"/></releases>
+</component>

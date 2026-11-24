@@ -1,0 +1,8 @@
+build/
+.huxerui/
+tools/
+build-stage/
+build-rpm/
+build-deb/
+AppDir/
+dist/

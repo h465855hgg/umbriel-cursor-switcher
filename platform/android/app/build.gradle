@@ -1,0 +1,374 @@
+import com.android.build.api.artifact.SingleArtifact
+import com.android.build.api.variant.BuildConfigField
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
+import java.security.MessageDigest
+import java.util.zip.ZipFile
+import javax.inject.Inject
+import org.gradle.process.ExecOperations
+
+plugins {
+    alias(libs.plugins.android.application)
+}
+
+abstract class StageHuxerUIAssets extends DefaultTask {
+    @InputFiles
+    @PathSensitive(PathSensitivity.RELATIVE)
+    abstract ConfigurableFileCollection getPackageDirectories()
+
+    @OutputDirectory
+    abstract DirectoryProperty getOutputDirectory()
+
+    @Inject
+    abstract FileSystemOperations getFileSystemOperations()
+
+    @TaskAction
+    void stage() {
+        def resourcePackage = packageDirectories.files.find { new File(it, "huxerui/resources.bin").isFile() }
+        if (resourcePackage == null) {
+            throw new GradleException("HuxerUI resource package is missing from the built Android ABIs")
+        }
+        fileSystemOperations.sync {
+            from resourcePackage
+            into outputDirectory
+        }
+    }
+}
+
+// The application core built by mcpp, one `mcpp build --target <triple>` for each ABI. AGP's externalNativeBuild
+// takes only CMake and ndk-build, so the core reaches the package as generated jniLibs, with the integration plan
+// and the resource package the CMake integration writes for each ABI, translated from mcpp's machine output.
+abstract class BuildHuxerUICoreWithMcpp extends DefaultTask {
+    // An mcpp profile: `dev`, `release`, or one the manifest declares.
+    @Input
+    abstract Property<String> getProfile()
+
+    @Input
+    abstract ListProperty<String> getFeatures()
+
+    @Input
+    abstract ListProperty<String> getAbis()
+
+    @Internal
+    abstract DirectoryProperty getProjectRoot()
+
+    @Internal
+    abstract DirectoryProperty getIntegrationRoot()
+
+    @Internal
+    abstract DirectoryProperty getResourceRoot()
+
+    @OutputDirectory
+    abstract DirectoryProperty getOutputDirectory()
+
+    @Inject
+    abstract ExecOperations getExecOperations()
+
+    @Inject
+    abstract FileSystemOperations getFileSystemOperations()
+
+    @TaskAction
+    void build() {
+        def triples = ["arm64-v8a": "aarch64-linux-android", "x86_64": "x86_64-linux-android"]
+        def libraries = outputDirectory.get().asFile
+        fileSystemOperations.delete { delete libraries }
+        abis.get().each { abi ->
+            def triple = triples[abi]
+            if (triple == null) {
+                throw new GradleException("The mcpp integration builds no Android ABI ${abi}")
+            }
+            def arguments = ["build", "--target", triple, "--message-format", "json"]
+            if (profile.get() == "release") {
+                arguments.add("--release")
+            } else if (profile.get() != "dev") {
+                arguments.addAll(["--profile", profile.get()])
+            }
+            if (!features.get().isEmpty()) {
+                arguments.addAll(["--features", features.get().join(",")])
+            }
+            def report = new ByteArrayOutputStream()
+            execOperations.exec {
+                executable "mcpp"
+                args arguments
+                workingDir projectRoot.get().asFile
+                standardOutput = report
+            }
+            def result = report.toString("UTF-8").readLines()
+                    .findAll { it.startsWith("{") }
+                    .collect { new JsonSlurper().parseText(it) }
+                    .find { it.data instanceof Map && it.data.artifacts instanceof List }
+            def artifacts = result == null ? [] : result.data.artifacts.findAll { it.kind == "shared" }
+            if (artifacts.size() != 1) {
+                throw new GradleException("mcpp reported ${artifacts.size()} application libraries for ${triple}")
+            }
+            def library = new File(artifacts.first().path)
+            fileSystemOperations.copy {
+                from library
+                into new File(libraries, abi)
+            }
+            def plan = new File(integrationRoot.get().asFile, "${abi}/app.json")
+            plan.parentFile.mkdirs()
+            plan.setText(JsonOutput.toJson([schema: 1, target: artifacts.first().name, artifact: library.absolutePath]),
+                    "UTF-8")
+            fileSystemOperations.sync {
+                from new File(library.parentFile, "huxerui")
+                into new File(resourceRoot.get().asFile, "${abi}/package/huxerui")
+            }
+        }
+    }
+}
+
+def huxeruiProperty = { String name -> providers.gradleProperty(name).get() }
+def huxeruiBuildSystem = rootProject.gradle.ext.huxeruiBuildSystem
+def huxeruiHome = rootProject.gradle.ext.huxeruiHome
+def huxeruiLibraries = rootProject.gradle.ext.huxeruiLibraries
+def huxeruiCompileSdk = huxeruiProperty("huxeruiCompileSdk").toInteger()
+def huxeruiMinSdk = huxeruiProperty("huxeruiMinSdk").toInteger()
+def huxeruiTargetSdk = huxeruiProperty("huxeruiTargetSdk").toInteger()
+def huxeruiNdkVersion = huxeruiProperty("huxeruiNdkVersion")
+def huxeruiAbis = huxeruiProperty("huxeruiAbis").split(",")
+def huxeruiStl = huxeruiProperty("huxeruiStl")
+def huxeruiWatch = providers.gradleProperty("huxeruiWatch").map { it == "true" }.orElse(false)
+
+android {
+    buildFeatures {
+        buildConfig = true
+    }
+
+    namespace = "com.example.prtscursorhui"
+    compileSdk = huxeruiCompileSdk
+    ndkVersion = huxeruiNdkVersion
+
+    defaultConfig {
+        applicationId = "com.example.prtscursorhui"
+        minSdk = huxeruiMinSdk
+        targetSdk = huxeruiTargetSdk
+        versionCode = 1
+        versionName = "0.1.0"
+
+        if (huxeruiBuildSystem == "cmake") {
+            externalNativeBuild {
+                cmake {
+                    arguments "-DANDROID_STL=${huxeruiStl}",
+                            "-DHUXERUI_HOME=${huxeruiHome.absolutePath}",
+                            "-DHUXERUI_OPTIMIZATION=${providers.gradleProperty('huxeruiOptimization').orElse('default').get()}",
+                            "-DHUXERUI_ENABLE_LTO=${providers.gradleProperty('huxeruiLto').orElse('OFF').get()}",
+                            "-DHUXERUI_ENABLE_PROFILING=${providers.gradleProperty('huxeruiProfiling').orElse('OFF').get()}"
+                }
+            }
+        }
+
+        ndk {
+            abiFilters(*huxeruiAbis)
+        }
+    }
+
+    buildTypes {
+        release {
+            // Replace the local development signing configuration before publishing.
+            signingConfig = signingConfigs.debug
+            minifyEnabled = false
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+
+    if (huxeruiBuildSystem == "cmake") {
+        externalNativeBuild {
+            cmake {
+                path = file("../../../CMakeLists.txt")
+                def cmakeVersion = providers.gradleProperty("huxeruiCmakeVersion").orNull
+                if (cmakeVersion != null) {
+                    version = cmakeVersion
+                }
+            }
+        }
+    }
+
+    lintOptions {
+        checkReleaseBuilds = false
+        abortOnError = false
+    }
+}
+
+androidComponents.onVariants(androidComponents.selector().all()) { variant ->
+    def integrationRoot = layout.buildDirectory.dir("generated/huxerui/integration/${variant.name}").get().asFile
+    def resourceRoot = layout.buildDirectory.dir("generated/huxerui/resources/${variant.name}").get().asFile
+    if (huxeruiBuildSystem == "cmake") {
+        variant.externalNativeBuild.arguments.add("-DHUXERUI_ANDROID_APP_INTEGRATION_ROOT=${integrationRoot.absolutePath}")
+        variant.externalNativeBuild.arguments.add("-DHUXERUI_ANDROID_RESOURCE_OUTPUT_ROOT=${resourceRoot.absolutePath}")
+    } else {
+        def buildCore = tasks.register("buildHuxerUI${variant.name.capitalize()}CoreWithMcpp", BuildHuxerUICoreWithMcpp) {
+            // The CLI passes the profile and features it resolved from its options; a build from Gradle itself takes
+            // the variant's own profile.
+            it.profile.set(providers.gradleProperty("huxeruiMcppProfile")
+                    .orElse(variant.buildType == "release" ? "release" : "dev"))
+            it.features.set(providers.gradleProperty("huxeruiMcppFeatures")
+                    .map { value -> value.split(",").findAll { !it.isEmpty() } }
+                    .orElse([]))
+            it.abis.set(huxeruiAbis.toList())
+            it.projectRoot.set(rootProject.layout.projectDirectory.dir("../.."))
+            it.integrationRoot.set(integrationRoot)
+            it.resourceRoot.set(resourceRoot)
+            it.outputDirectory.set(layout.buildDirectory.dir("generated/huxerui/jniLibs/${variant.name}"))
+            // mcpp decides what is out of date, so the task always asks it.
+            outputs.upToDateWhen { false }
+        }
+        variant.sources.jniLibs.addGeneratedSourceDirectory(buildCore) { it.outputDirectory }
+    }
+    def nativeLibraries = variant.artifacts.get(SingleArtifact.MERGED_NATIVE_LIBS.INSTANCE)
+    // A dependency can contribute native libraries for ABIs that CMake did not build for this variant.
+    def appLibraries = nativeLibraries.map { directory ->
+        def abiDirectories = new File(directory.asFile, "lib").listFiles()?.findAll { it.isDirectory() } ?: []
+        def libraries = abiDirectories.sort { it.name }.collect { abiDirectory ->
+            def planFile = new File(integrationRoot, "${abiDirectory.name}/app.json")
+            if (!planFile.isFile()) {
+                return null
+            }
+            def plan = new JsonSlurper().parse(planFile)
+            if (plan.schema != 1 || !(plan.target instanceof String) || !(plan.artifact instanceof String)) {
+                throw new GradleException("HuxerUI application integration plan is invalid: ${planFile}")
+            }
+            def fileName = new File(plan.artifact).name
+            if (!fileName.startsWith("lib") || !fileName.endsWith(".so") || fileName.length() <= 6) {
+                throw new GradleException("HuxerUI application artifact must be a lib<name>.so file: ${plan.artifact}")
+            }
+            if (!new File(abiDirectory, fileName).isFile()) {
+                return null
+            }
+            def libraryName = fileName.substring(3, fileName.length() - 3)
+            if (libraryName == "huxerui") {
+                throw new GradleException("HuxerUI application library must not use the framework name huxerui")
+            }
+            return [abi: abiDirectory.name, target: plan.target, library: libraryName]
+        }.findAll()
+        if (!libraries.isEmpty()) {
+            def applicationFile = "lib${libraries.first().library}.so"
+            def missingPlan = abiDirectories.find { abiDirectory ->
+                new File(abiDirectory, applicationFile).isFile() &&
+                        !libraries.any { it.abi == abiDirectory.name }
+            }
+            if (missingPlan != null) {
+                throw new GradleException("HuxerUI application integration plan is missing for ABI ${missingPlan.name}")
+            }
+        }
+        libraries
+    }
+    def libraryFile = layout.buildDirectory.file("generated/huxerui/app-library/${variant.name}.txt").get().asFile
+    def resolveLibrary = tasks.register("resolveHuxerUI${variant.name.capitalize()}AppLibrary") {
+        inputs.dir(nativeLibraries)
+        inputs.dir(integrationRoot)
+        outputs.file(libraryFile)
+        doLast {
+            def applications = appLibraries.get().collect { [target: it.target, library: it.library] }.unique()
+            if (applications.isEmpty()) {
+                throw new GradleException("HuxerUI application libraries are missing for variant ${variant.name}")
+            }
+            if (applications.size() != 1) {
+                throw new GradleException("HuxerUI application target and library name must match across Android ABIs")
+            }
+            libraryFile.parentFile.mkdirs()
+            libraryFile.setText(applications[0].library, "UTF-8")
+        }
+    }
+    // The task-backed provider carries the dependency into AGP's BuildConfig generation.
+    variant.buildConfigFields.put("HUXERUI_APP_LIBRARY", resolveLibrary.map { task ->
+        new BuildConfigField("String", JsonOutput.toJson(task.outputs.files.singleFile.getText("UTF-8")),
+                "Application library resolved from the CMake target.")
+    })
+
+    def stageAssets = tasks.register("stageHuxerUI${variant.name.capitalize()}Assets", StageHuxerUIAssets) {
+        packageDirectories.from(appLibraries.map { libraries ->
+            libraries.collect { new File(resourceRoot, "${it.abi}/package") }
+        })
+    }
+    // Register ownership once so asset merging, lint, and other consumers all depend on staging.
+    variant.sources.assets.addGeneratedSourceDirectory(stageAssets) { it.outputDirectory }
+
+    def watchEnabled = variant.buildType == "debug" && huxeruiWatch.get()
+    variant.buildConfigFields.put("HUXERUI_WATCH", new BuildConfigField("boolean", watchEnabled.toString(),
+            "Enable the development loader for this invocation."))
+    if (watchEnabled) {
+        def apkDirectory = variant.artifacts.get(SingleArtifact.APK.INSTANCE)
+        def assetsDirectory = stageAssets.flatMap { it.outputDirectory }
+        def outputDirectory = layout.buildDirectory.dir("generated/huxerui/watch/${variant.name}")
+        def stageWatch = tasks.register("stageHuxerUI${variant.name.capitalize()}Watch") {
+            inputs.dir(apkDirectory)
+            inputs.dir(assetsDirectory)
+            inputs.dir(integrationRoot)
+            outputs.dir(outputDirectory)
+            doLast {
+                def dest = outputDirectory.get().asFile
+                delete(dest)
+                def apks = apkDirectory.get().asFile.listFiles()?.findAll { it.name.endsWith(".apk") } ?: []
+                if (apks.size() != 1) return
+
+                def assets = assetsDirectory.get().asFile
+                def resources = fileTree(assets).files.collectEntries {
+                    [("assets/" + assets.toPath().relativize(it.toPath()).toString().replace('\\', '/')): it]
+                }
+                def libraries = appLibraries.get().collectEntries {
+                    [("lib/${it.abi}/lib${it.library}.so".toString()): it.abi]
+                }
+                def shell = MessageDigest.getInstance("SHA-256")
+                def signingStore = android.buildTypes.getByName("debug").signingConfig?.storeFile
+                if (signingStore?.isFile()) {
+                    signingStore.withInputStream { input ->
+                        input.eachByte(16384) { buffer, count -> shell.update(buffer, 0, count) }
+                    }
+                }
+                new ZipFile(apks.first()).withCloseable { apk ->
+                    apk.entries().toList().sort { it.name }.each { entry ->
+                        def name = entry.name
+                        if (entry.isDirectory() || resources.containsKey(name) ||
+                                name == "META-INF/MANIFEST.MF" || name ==~ /META-INF\/[^\/]+\.(SF|RSA|DSA|EC)/) {
+                            return
+                        }
+                        if (libraries.containsKey(name)) {
+                            def library = new File(dest, "${libraries[name]}/app.so")
+                            library.parentFile.mkdirs()
+                            library.withOutputStream { out ->
+                                apk.getInputStream(entry).withCloseable { out << it }
+                            }
+                            name = "watch:" + name
+                            shell.update(name.getBytes("UTF-8"))
+                            return
+                        }
+                        shell.update(("${name}\n${entry.size}\n").toString().getBytes("UTF-8"))
+                        apk.getInputStream(entry).withCloseable { input ->
+                            input.eachByte(16384) { buffer, count -> shell.update(buffer, 0, count) }
+                        }
+                    }
+                }
+                libraries.values().each { abi ->
+                    def payload = new File(dest, abi)
+                    if (!new File(payload, "app.so").isFile()) return
+                    project.copy {
+                        from assets
+                        into new File(payload, "resources")
+                    }
+                }
+                dest.mkdirs()
+                new File(dest, "shell.txt").setText(shell.digest().encodeHex().toString(), "UTF-8")
+            }
+        }
+        tasks.matching { it.name == "assemble${variant.name.capitalize()}" }.configureEach {
+            finalizedBy(stageWatch)
+        }
+    }
+}
+
+dependencies {
+    if (rootProject.gradle.ext.huxeruiUsesSource) {
+        implementation project(":HuxerUI")
+    } else {
+        implementation files(rootProject.gradle.ext.huxeruiAndroidArchive)
+    }
+    huxeruiLibraries.each { library ->
+        implementation project(library.projectPath)
+    }
+}

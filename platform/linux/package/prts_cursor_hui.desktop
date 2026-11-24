@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=prts-cursor-hui
+Exec=prts_cursor_hui
+Icon=prts_cursor_hui
+Categories=Utility;
+Terminal=false

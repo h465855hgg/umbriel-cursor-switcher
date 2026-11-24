@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Cursor Effects Switcher
+Name[zh_CN]=光标特效切换器
+Comment=Switch cursor themes, size and Umbriel cursor shader effects
+Comment[zh_CN]=切换鼠标主题、大小与 Umbriel 光标 shader 光效
+Exec=cursor-switcher
+Icon=cursor-switcher
+Terminal=false
+Categories=Settings;DesktopSettings;
+Keywords=cursor;pointer;theme;effects;鼠标;指针;光效;

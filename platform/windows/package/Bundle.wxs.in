@@ -1,0 +1,17 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Bundle Name="prts-cursor-hui" Manufacturer="com.example.prtscursorhui" Version="@HUXERUI_WINDOWS_PROJECT_VERSION@"
+          UpgradeCode="@HUXERUI_WINDOWS_BUNDLE_UPGRADE_CODE@"
+          IconSourceFile="!(bindpath.Project)\app.ico">
+    <BootstrapperApplication SourceFile="!(bindpath.Installer)\prts_cursor_hui-Installer.exe">
+      <PayloadGroupRef Id="HuxerUIInstallerPayloads" />
+    </BootstrapperApplication>
+    <Variable Name="InstallFolder" Type="formatted" Value="[ProgramFiles64Folder]prts-cursor-hui" />
+    <Variable Name="CreateDesktopShortcut" Type="numeric" Value="0" />
+    <Chain>
+      <MsiPackage SourceFile="!(bindpath.Package)\prts_cursor_hui.msi">
+        <MsiProperty Name="INSTALLFOLDER" Value="[InstallFolder]" />
+        <MsiProperty Name="CREATE_DESKTOP_SHORTCUT" Value="[CreateDesktopShortcut]" />
+      </MsiPackage>
+    </Chain>
+  </Bundle>
+</Wix>
