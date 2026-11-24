@@ -4,7 +4,7 @@
 
 - **自动识别**已安装的 Xcursor 主题（扫描 `~/.local/share/icons`、`~/.icons`、`/usr/share/icons`）
 - 切换主题、调整大小 16–72 px
-- 切换 30 个社区光标 shader 光效，可调半径
+- 自动扫描社区光标 shader 光效（当前 30 个），**新装的效果会自动出现在列表里，选中时自动加进 Umbriel 的 `[include]`**，可调半径
 - 改动即时写入 `~/.config/umbriel/config.toml` 并热重载，没有「应用」按钮
 - 中英文界面（按 `LANG` 自动选择）
 - 托盘：显示 / 隐藏、退出

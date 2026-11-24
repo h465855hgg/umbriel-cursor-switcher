@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PRTS 光标：读写 Umbriel 光标配置与 shader 光效。"""
+"""光标特效切换器：读写 Umbriel 光标配置与 shader 光效。"""
 import argparse, pathlib, re, subprocess, sys, tomllib
 
 HOME = pathlib.Path.home()
@@ -18,6 +18,27 @@ def preset_files():
             if preset.get("kind") == "cursor":
                 found[name] = p
     return found
+
+def ensure_include(effect: str) -> None:
+    """把新效果自动加进 [include] files，装好就能用。"""
+    path = preset_files().get(effect)
+    if path is None:
+        return
+    try:
+        rel = path.relative_to(CFG.parent).as_posix()
+    except ValueError:
+        rel = str(path)
+    text = CFG.read_text(encoding="utf-8")
+    if f'"{rel}"' in text:
+        return
+    match = re.search(r"(?ms)^\[include\]\s*\nfiles\s*=\s*\[(.*?)\]", text)
+    if match is None:
+        return
+    body = match.group(1).rstrip()
+    addition = f'\n    "{rel}",'
+    text = text[:match.start(1)] + body + addition + "\n" + text[match.end(1):]
+    CFG.write_text(text, encoding="utf-8")
+
 
 def read_state():
     d = tomllib.loads(CFG.read_text(encoding="utf-8"))
@@ -64,6 +85,9 @@ def apply(theme, size, effect, radius):
     text = CFG.read_text(encoding="utf-8")
     text = upsert(text, "input.cursor", "theme", f'"{theme}"')
     text = upsert(text, "input.cursor", "size", str(int(size)))
+    if effect != "off":
+        ensure_include(effect)
+        text = CFG.read_text(encoding="utf-8")
     text = upsert(text, "effects", "cursor", f'"{effect}"' if effect != "off" else '""')
     CFG.write_text(text, encoding="utf-8")
 
