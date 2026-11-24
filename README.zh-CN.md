@@ -4,6 +4,8 @@
 
 给 [Umbriel](https://github.com/noctalia-dev/umbriel) 用的光标主题、大小与 shader 光效切换器，[HuxerUI](https://github.com/HuxerUI/HuxerUI) 编写。
 
+![演示](docs/demo.gif)
+
 ![截图](docs/screenshot.png)
 
 ## 功能
