@@ -36,7 +36,6 @@ huxerui build linux --config release
 ## 说明
 
 - 光效不能叠加，一次只能挂一个
-- Umbriel 不支持合成器主题的多帧动画（[umbriel#903](https://github.com/noctalia-dev/umbriel/issues/903)），动画主题在 Umbriel 下是静态的
 
 ## 许可
 
