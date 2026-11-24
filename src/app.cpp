@@ -217,6 +217,33 @@ const Initial& Current() {
   return cached;
 }
 
+std::function<void()> g_toggle;
+
+void InstallTray(ApplicationContext&) {
+  const auto icon = FindFile({
+      ExecutableDir() + "/icon.png",
+      HomeDir() + "/.local/opt/cursor-switcher/icon.png",
+  });
+  if (icon.empty()) {
+    return;
+  }
+  const auto app = UseApplication();
+  const auto tray = app.SystemTray();
+  tray.OnActivate([] {
+    if (g_toggle) {
+      g_toggle();
+    }
+  });
+  tray.Show(ImageAsset::FromFile(File(icon)), SystemTrayOptions{
+      .tooltip = "Cursor Effects Switcher",
+      .menu = {
+          MenuEntry(MenuItem("Show / Hide", [] { if (g_toggle) g_toggle(); })),
+          MenuEntry(MenuSection{}),
+          MenuEntry(MenuItem("Quit", [app] { app.Quit(); })),
+      },
+  });
+}
+
 }  // namespace
 
 View App() {
@@ -251,6 +278,17 @@ View App() {
                                    " --effect " + EffectName(effects, effectIndex.Get()) +
                                    " --radius " + std::to_string(static_cast<int>(radius.Get())) + " 2>&1");
     status = result.empty() || result.rfind("config: ok", 0) == 0 ? tr("已应用", "Applied") : result;
+  };
+
+  g_toggle = [window] {
+    static bool visible = true;
+    if (visible) {
+      window.Hide();
+    } else {
+      window.Show();
+      window.Activate();
+    }
+    visible = !visible;
   };
 
   const auto reset = [=] {
@@ -373,5 +411,6 @@ const Application application{
                 .initial_size = {640.0F, 700.0F},
                 .minimum_size = Size{640.0F, 700.0F},
                 .chrome_mode = WindowChromeMode::Custom,
-                .title_bar_height = 46.0F}},
+                .title_bar_height = 46.0F},
+     .application_hooks = {InstallTray}},
 };

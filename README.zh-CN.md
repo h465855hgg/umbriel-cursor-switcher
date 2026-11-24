@@ -14,6 +14,7 @@
 - 可调光效半径
 - 改动即时写入 `~/.config/umbriel/config.toml` 并热重载，没有「应用」按钮
 - 中英文界面，可在软件内切换并记住上次选择
+- 系统托盘：显示 / 隐藏窗口、退出
 - 浮动窗口 640×700（Umbriel 窗口规则），自绘标题栏
 
 > 只写 Umbriel 的配置；光效是 Umbriel 的 shader。主题文件本身是通用 Xcursor，其它桌面也能用，但切换只针对 Umbriel。

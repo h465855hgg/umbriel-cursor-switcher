@@ -16,6 +16,7 @@ A cursor theme, size and shader-effect switcher for [Umbriel](https://github.com
 - Adjustable effect radius
 - Changes are written to `~/.config/umbriel/config.toml` and hot-reloaded immediately — no Apply button
 - Chinese / English UI, switchable inside the app and remembered across restarts
+- System tray: show/hide the window, quit
 - Floating window 640×700 (Umbriel window rule), custom title bar
 
 > Only writes Umbriel configuration; effects are Umbriel shaders. Installed theme files are plain Xcursor and usable by any desktop, but switching is Umbriel-specific.
