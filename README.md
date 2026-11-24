@@ -4,6 +4,8 @@
 
 A cursor theme, size and shader-effect switcher for [Umbriel](https://github.com/noctalia-dev/umbriel), built with [HuxerUI](https://github.com/HuxerUI/HuxerUI).
 
+![demo](docs/demo.gif)
+
 ![screenshot](docs/screenshot.png)
 
 ## Features
