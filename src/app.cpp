@@ -15,6 +15,11 @@ namespace fs = std::filesystem;
 
 namespace {
 
+std::string HomeDir() {
+  const char* home = std::getenv("HOME");
+  return home != nullptr ? std::string(home) : std::string();
+}
+
 bool IsZh() {
   const char* value = std::getenv("LC_ALL");
   if (value == nullptr || *value == '\0') {
@@ -23,11 +28,33 @@ bool IsZh() {
   return value != nullptr && std::string(value).rfind("zh", 0) == 0;
 }
 
-const char* T(const char* zh, const char* en) { return IsZh() ? zh : en; }
+std::string LanguageFile() { return HomeDir() + "/.config/cursor-switcher/language"; }
 
-std::string HomeDir() {
-  const char* home = std::getenv("HOME");
-  return home != nullptr ? std::string(home) : std::string();
+std::string SavedLanguage() {
+  std::string saved;
+  if (FILE* file = fopen(LanguageFile().c_str(), "r")) {
+    char buffer[8] = {0};
+    if (fgets(buffer, sizeof(buffer), file) != nullptr) {
+      saved = buffer;
+    }
+    fclose(file);
+  }
+  while (!saved.empty() && (saved.back() == '\n' || saved.back() == '\r')) {
+    saved.pop_back();
+  }
+  if (saved == "zh" || saved == "en") {
+    return saved;
+  }
+  return IsZh() ? "zh" : "en";
+}
+
+void SaveLanguage(const std::string& lang) {
+  const std::string path = LanguageFile();
+  std::filesystem::create_directories(std::filesystem::path(path).parent_path());
+  if (FILE* file = fopen(path.c_str(), "w")) {
+    fprintf(file, "%s\n", lang.c_str());
+    fclose(file);
+  }
 }
 
 std::string ExecutableDir() {
@@ -103,33 +130,12 @@ std::string Field(const std::string& text, const std::string& key) {
   return text.substr(start + prefix.size(), end == std::string::npos ? std::string::npos : end - start - prefix.size());
 }
 
-struct ThemeEntry {
-  std::string id;
-  std::string label;
-};
-
 bool HasCursors(const fs::path& dir) {
   return fs::is_directory(dir / "cursors") || fs::is_directory(dir / "cursors_scalable");
 }
 
-std::string KnownLabel(const std::string& id) {
-  if (id == "PRTS-Final") {
-    return T("PRTS 动画", "PRTS Animated");
-  }
-  if (id == "PRTS-Final-Static") {
-    return T("PRTS 静态", "PRTS Static");
-  }
-  if (id == "Bibata-Modern-Classic") {
-    return "Bibata";
-  }
-  if (id == "Adwaita") {
-    return "Adwaita";
-  }
-  return id;
-}
-
-std::vector<ThemeEntry> DetectThemes() {
-  std::vector<ThemeEntry> themes;
+std::vector<std::string> DetectThemes() {
+  std::vector<std::string> themes;
   std::vector<std::string> seen;
   const std::string home = HomeDir();
   const std::array<std::string, 3> roots = {home + "/.local/share/icons", home + "/.icons", "/usr/share/icons"};
@@ -146,7 +152,7 @@ std::vector<ThemeEntry> DetectThemes() {
         continue;
       }
       seen.push_back(id);
-      themes.push_back({id, KnownLabel(id)});
+      themes.push_back(id);
     }
   }
   const auto rank = [](const std::string& id) {
@@ -156,13 +162,13 @@ std::vector<ThemeEntry> DetectThemes() {
     if (id == "Adwaita") return 3;
     return 10;
   };
-  std::stable_sort(themes.begin(), themes.end(), [&](const ThemeEntry& left, const ThemeEntry& right) {
-    const int left_rank = rank(left.id);
-    const int right_rank = rank(right.id);
+  std::stable_sort(themes.begin(), themes.end(), [&](const std::string& left, const std::string& right) {
+    const int left_rank = rank(left);
+    const int right_rank = rank(right);
     if (left_rank != right_rank) {
       return left_rank < right_rank;
     }
-    return left.id < right.id;
+    return left < right;
   });
   return themes;
 }
@@ -217,11 +223,13 @@ View App() {
   const WindowHandle window = UseWindow();
   const Initial init = Current();
   const auto themes = DetectThemes();
+  auto lang = UseState<std::string>(IsZh() ? std::string("zh") : std::string("en"));
+  const auto tr = [=](const char* zh, const char* en) { return lang.Get() == "zh" ? zh : en; };
   const auto& effects = init.effects;
 
   std::size_t theme_index = 0;
   for (std::size_t i = 0; i < themes.size(); ++i) {
-    if (themes[i].id == init.theme) {
+    if (themes[i] == init.theme) {
       theme_index = i;
     }
   }
@@ -233,22 +241,22 @@ View App() {
   auto size = UseState(init.size);
   auto effectIndex = UseState(init.effect);
   auto radius = UseState(init.radius);
-  auto status = UseState<std::string>(T("改动即时生效", "Changes apply immediately"));
+  auto status = UseState<std::string>(tr("改动即时生效", "Changes apply immediately"));
 
   const auto apply = [=] {
-    const std::string theme = themes.empty() ? std::string("Adwaita") : themes[std::min(themeIndex.Get(), themes.size() - 1)].id;
+    const std::string theme = themes.empty() ? std::string("Adwaita") : themes[std::min(themeIndex.Get(), themes.size() - 1)];
     const std::string result = Run(std::string("python3 ") + HelperPath() +
                                    " --set --theme " + theme +
                                    " --size " + std::to_string(static_cast<int>(size.Get())) +
                                    " --effect " + EffectName(effects, effectIndex.Get()) +
                                    " --radius " + std::to_string(static_cast<int>(radius.Get())) + " 2>&1");
-    status = result.empty() || result.rfind("config: ok", 0) == 0 ? T("已应用", "Applied") : result;
+    status = result.empty() || result.rfind("config: ok", 0) == 0 ? tr("已应用", "Applied") : result;
   };
 
   const auto reset = [=] {
     std::size_t index = 0;
     for (std::size_t i = 0; i < themes.size(); ++i) {
-      if (themes[i].id == "Bibata-Modern-Classic") {
+      if (themes[i] == "Bibata-Modern-Classic") {
         index = i;
       }
     }
@@ -259,9 +267,17 @@ View App() {
     apply();
   };
 
+  std::vector<std::string> theme_label_strings;
   std::vector<StringVariant> theme_labels;
   for (const auto& theme : themes) {
-    theme_labels.emplace_back(theme.label);
+    std::string label = theme;
+    if (theme == "PRTS-Final") {
+      label = tr("PRTS 动画", "PRTS Animated");
+    } else if (theme == "PRTS-Final-Static") {
+      label = tr("PRTS 静态", "PRTS Static");
+    }
+    theme_label_strings.push_back(label);
+    theme_labels.emplace_back(label);
   }
 
   constexpr std::size_t columnCount = 4;
@@ -283,14 +299,22 @@ View App() {
 
   return FlatTheme{Column{
       Row{
-          Text(T("光标特效切换器", "Cursor Effects Switcher"), TextRole::Title),
+          Text(tr("光标特效切换器", "Cursor Effects Switcher"), TextRole::Title),
           Spacer().With(Grow()),
       }.With(Spacing(6.0F), WindowDragRegion{}),
       Divider(),
-      Text(T("主题", "Theme"), TextRole::Label),
+      Row{
+          Text(tr("语言", "Language"), TextRole::Label),
+          SegmentedButton(std::vector<StringVariant>{std::string("中文"), std::string("English")},
+                          lang.Get() == "zh" ? std::size_t{0} : std::size_t{1})
+              .OnChanged([lang](std::size_t next) mutable {
+                lang = next == 0 ? std::string("zh") : std::string("en");
+              }),
+      }.With(Spacing(10.0F)),
+      Text(tr("主题", "Theme"), TextRole::Label),
       [&]() -> View {
         if (themes.empty()) {
-          return Text(T("未检测到已安装的光标主题", "No cursor themes detected"), TextRole::Label);
+          return Text(tr("未检测到已安装的光标主题", "No cursor themes detected"), TextRole::Label);
         }
         if (themes.size() <= 4) {
           return SegmentedButton(theme_labels, themeIndex).OnChanged([themeIndex, apply](std::size_t next) mutable {
@@ -301,7 +325,7 @@ View App() {
         std::vector<View> columns[3];
         for (std::size_t i = 0; i < themes.size(); ++i) {
           columns[i % 3].push_back(
-              RadioButton(ShortLabel(themes[i].label), themeIndex.Get() == i)
+              RadioButton(ShortLabel(theme_label_strings[i]), themeIndex.Get() == i)
                   .OnChanged([themeIndex, i, apply](bool on) mutable {
                     if (on) {
                       themeIndex = i;
@@ -316,7 +340,7 @@ View App() {
         }.With(Spacing(14.0F));
       }(),
       Row{
-          Text(T("大小", "Size"), TextRole::Label),
+          Text(tr("大小", "Size"), TextRole::Label),
           Text::Format("{} px", static_cast<int>(size.Get())),
       }.With(Spacing(6.0F)),
       Slider(size).Range(16.0F, 72.0F).Step(1.0F).OnCommitted([size, apply](float next) mutable {
@@ -324,17 +348,17 @@ View App() {
         apply();
       }),
       Row{
-          Text(T("光效半径", "Effect radius"), TextRole::Label),
+          Text(tr("光效半径", "Effect radius"), TextRole::Label),
           Text::Format("{}", static_cast<int>(radius.Get())),
       }.With(Spacing(6.0F)),
       Slider(radius).Range(32.0F, 256.0F).Step(8.0F).OnCommitted([radius, apply](float next) mutable {
         radius = next;
         apply();
       }),
-      Text(T("光标光效（单选）", "Cursor effect (single)"), TextRole::Label),
+      Text(tr("光标光效（单选）", "Cursor effect (single)"), TextRole::Label),
       Row(std::move(grid)).With(Spacing(14.0F)),
       Row{
-          Button(T("恢复默认", "Reset")).OnClick(reset),
+          Button(tr("恢复默认", "Reset")).OnClick(reset),
           Text(status.Get(), TextRole::Label),
       }.With(Spacing(12.0F)),
   }.With(Padding(14.0F), Spacing(6.0F), Background(Color::White()), CornerRadius(12.0F),
