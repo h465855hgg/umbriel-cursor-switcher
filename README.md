@@ -1,20 +1,26 @@
-# 光标特效切换器 / Cursor Effects Switcher
+# Cursor Effects Switcher
 
-给 [Umbriel](https://github.com/noctalia-dev/umbriel) 用的光标主题与光标 shader 光效切换器，HuxerUI 编写，带托盘。
+[English](README.md) | [简体中文](README.zh-CN.md)
 
-- **自动识别**已安装的 Xcursor 主题（扫描 `~/.local/share/icons`、`~/.icons`、`/usr/share/icons`）
-- 切换主题、调整大小 16–72 px
-- 自动扫描社区光标 shader 光效（当前 30 个），**新装的效果会自动出现在列表里，选中时自动加进 Umbriel 的 `[include]`**，可调半径
-- 改动即时写入 `~/.config/umbriel/config.toml` 并热重载，没有「应用」按钮
-- 中英文界面（按 `LANG` 自动选择）
-- 托盘：显示 / 隐藏、退出
-- 默认浮动窗口 640×560
+A cursor theme, size and shader-effect switcher for [Umbriel](https://github.com/noctalia-dev/umbriel), built with [HuxerUI](https://github.com/HuxerUI/HuxerUI).
 
-> 只写 Umbriel 的配置，光效是 Umbriel 的 shader。主题文件本身是通用 Xcursor，其它桌面也能用，但切换要各自桌面自己的方式。
+![screenshot](docs/screenshot.png)
 
-## 构建
+## Features
 
-需要 [HuxerUI SDK](https://github.com/HuxerUI/HuxerUI) 0.5.5+ 和 GTK3 开发库：
+- **Auto-detects** installed Xcursor themes (`~/.local/share/icons`, `~/.icons`, `/usr/share/icons`) — no hardcoded list
+- Switches cursor theme and size (16–72 px)
+- Auto-discovers community cursor shader effects (currently 30); newly installed effects appear automatically and are added to Umbriel's `[include]` when selected
+- Adjustable effect radius
+- Changes are written to `~/.config/umbriel/config.toml` and hot-reloaded immediately — no Apply button
+- Chinese / English UI, switchable inside the app and remembered across restarts
+- Floating window 640×700 (Umbriel window rule), custom title bar
+
+> Only writes Umbriel configuration; effects are Umbriel shaders. Installed theme files are plain Xcursor and usable by any desktop, but switching is Umbriel-specific.
+
+## Build
+
+Requires the [HuxerUI SDK](https://github.com/HuxerUI/HuxerUI) 0.5.5+ and GTK 4 development packages:
 
 ```sh
 curl -fsSL https://github.com/HuxerUI/HuxerUI/releases/latest/download/install.sh | sh -s -- --yes
@@ -25,18 +31,19 @@ huxerui build linux --config release
 ./scripts/package-all.sh        # rpm + deb + AppImage
 ```
 
-## 安装
+## Install
 
 ```sh
-./install.sh      # 装到 ~/.local/opt/cursor-switcher
+./install.sh      # installs to ~/.local/opt/cursor-switcher
 ```
 
-或装分发包（RPM/DEB/AppImage），见 Releases。
+Or use the RPM / DEB / AppImage from [Releases](https://github.com/h465855hgg/umbriel-cursor-switcher/releases).
 
-## 说明
+## Notes
 
-- 光效不能叠加，一次只能挂一个
+- Effects are single-select; Umbriel can only mount one cursor effect at a time
+- Add new effects by dropping a shader directory into `~/.config/umbriel/shaders/community/cursor/<name>/`
 
-## 许可
+## License
 
 MIT
