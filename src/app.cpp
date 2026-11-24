@@ -175,8 +175,8 @@ std::vector<std::string> DetectThemes() {
 
 std::string ShortLabel(const std::string& name) {
   std::string out = name;
-  if (out.size() > 18) {
-    out = out.substr(0, 17) + "…";
+  if (out.size() > 16) {
+    out = out.substr(0, 15) + "…";
   }
   return out;
 }
@@ -307,8 +307,9 @@ View App() {
           Text(tr("语言", "Language"), TextRole::Label),
           SegmentedButton(std::vector<StringVariant>{std::string("中文"), std::string("English")},
                           lang.Get() == "zh" ? std::size_t{0} : std::size_t{1})
-              .OnChanged([lang](std::size_t next) mutable {
+              .OnChanged([lang, status](std::size_t next) mutable {
                 lang = next == 0 ? std::string("zh") : std::string("en");
+                status = lang.Get() == "zh" ? "改动即时生效" : "Changes apply immediately";
               }),
       }.With(Spacing(10.0F)),
       Text(tr("主题", "Theme"), TextRole::Label),
@@ -322,9 +323,9 @@ View App() {
             apply();
           });
         }
-        std::vector<View> columns[3];
+        std::vector<View> columns[2];
         for (std::size_t i = 0; i < themes.size(); ++i) {
-          columns[i % 3].push_back(
+          columns[i % 2].push_back(
               RadioButton(ShortLabel(theme_label_strings[i]), themeIndex.Get() == i)
                   .OnChanged([themeIndex, i, apply](bool on) mutable {
                     if (on) {
@@ -336,7 +337,6 @@ View App() {
         return Row{
             Column(std::move(columns[0])).With(Spacing(0.0F)),
             Column(std::move(columns[1])).With(Spacing(0.0F)),
-            Column(std::move(columns[2])).With(Spacing(0.0F)),
         }.With(Spacing(14.0F));
       }(),
       Row{
