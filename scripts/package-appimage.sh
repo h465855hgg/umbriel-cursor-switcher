@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")/.."
-VERSION=0.1.0
+VERSION=${VERSION:-0.1.0}
 ARCH=${ARCH:-$(uname -m)}
 case "$ARCH" in aarch64|arm64) ARCH=aarch64 ;; esac
 TOOLS=$PWD/tools

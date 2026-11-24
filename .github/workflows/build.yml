@@ -39,7 +39,11 @@ jobs:
           echo "HUXERUI_HOME=$HOME/.local/share/HuxerUI" >> "$GITHUB_ENV"
           echo "$HOME/.local/share/HuxerUI/bin" >> "$GITHUB_PATH"
       - name: Build and package
+        env:
+          VERSION: ${{ github.ref_name }}
         run: |
+          VERSION="${VERSION#v}"
+          export VERSION
           huxerui build linux --config release
           ./scripts/stage.sh
           ./scripts/package-all.sh "${{ matrix.arch }}"

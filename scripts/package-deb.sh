@@ -2,7 +2,7 @@
 set -eu
 cd "$(dirname "$0")/.."
 ARCH=${ARCH:-amd64}
-VERSION=0.1.0
+VERSION=${VERSION:-0.1.0}
 PKG=$PWD/build-deb
 rm -rf "$PKG"
 cp -a build-stage "$PKG"

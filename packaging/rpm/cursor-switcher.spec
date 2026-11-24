@@ -20,7 +20,7 @@ immediately by writing ~/.config/umbriel/config.toml and reloading Umbriel.
 install -d %{buildroot}/opt/cursor-switcher
 cp -a %{stage}/opt/cursor-switcher/. %{buildroot}/opt/cursor-switcher/
 install -d %{buildroot}%{_bindir}
-ln -s ../opt/cursor-switcher/cursor-switcher %{buildroot}%{_bindir}/cursor-switcher
+ln -s ../../opt/cursor-switcher/cursor-switcher %{buildroot}%{_bindir}/cursor-switcher
 install -d %{buildroot}%{_datadir}/applications
 install -m644 %{stage}/usr/share/applications/cursor-switcher.desktop %{buildroot}%{_datadir}/applications/
 install -d %{buildroot}%{_datadir}/icons/hicolor/256x256/apps

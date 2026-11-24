@@ -5,7 +5,10 @@ STAGE=$PWD/build-stage
 TOPDIR=$PWD/build-rpm
 rm -rf "$TOPDIR"
 ARCH=${ARCH:-$(uname -m)}
-rpmbuild -bb packaging/rpm/cursor-switcher.spec \
+VERSION=${VERSION:-0.1.0}
+SPEC=$(mktemp)
+sed "s/^Version:.*/Version:        $VERSION/" packaging/rpm/cursor-switcher.spec > "$SPEC"
+rpmbuild -bb "$SPEC" \
   --define "_topdir $TOPDIR" \
   --define "stage $STAGE" \
   --define "buildarch $ARCH" \
